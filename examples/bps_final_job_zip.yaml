@@ -1,0 +1,5 @@
+finalJob:
+  command1: >-
+    python ${DATA_CURATION_TOOLS_DIR}/scripts/final_job_zip.py
+    {fileDistributionEndPoint}{qgraphFile}
+    {butlerConfig}
