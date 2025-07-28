@@ -6,17 +6,19 @@
 lsst.data-curation-tools
 ########################
 
-.. Paragraph that describes what this Python module does and links to related modules and frameworks.
+This package contains useful scripts and utilities for maintaining Vera C. Rubin Observatory data.
 
-.. .. _lsst.data-curation-tools-using:
+.. _lsst.data-curation-tools-using:
 
-.. Using lsst.data-curation-tools
-.. ==============================
+Using lsst.data-curation-tools
+==============================
 
 .. toctree linking to topics related to using the module's APIs.
 
-.. .. toctree::
-..    :maxdepth: 1
+.. toctree::
+   :maxdepth: 1
+
+   run_pruning
 
 .. _lsst.data-curation-tools-contributing:
 
