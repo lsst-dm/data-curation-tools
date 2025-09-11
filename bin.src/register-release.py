@@ -284,6 +284,12 @@ for i, dstype in enumerate(dataset_type_list):
         files.append(did)
         if len(files) >= 500:
             if not config.dry_run:
+                present = replica_client.list_replicas(
+                    files,
+                    rse_expression=config.rse,
+                )
+                existing_names = {replica.name for replica in present}
+                files = [did for did in files if did["name"] not in existing_names]
                 retry(
                     "add replicas",
                     replica_client.add_replicas,
@@ -298,12 +304,21 @@ for i, dstype in enumerate(dataset_type_list):
         rucio_datasets[rucio_dataset].append(did)
         if len(rucio_datasets[rucio_dataset]) >= 500:
             if not config.dry_run:
+                present = did_client.list_content(
+                    scope=config.scope, name=rucio_dataset
+                )
+                existing_names = {did.name for did in present}
+                needed = [
+                    did
+                    for did in rucio_datasets[rucio_dataset]
+                    if did["name"] not in existing_names
+                ]
                 retry(
                     f"add files to {rucio_dataset}",
                     did_client.add_files_to_dataset,
                     scope=config.scope,
                     name=rucio_dataset,
-                    files=rucio_datasets[rucio_dataset],
+                    files=needed,
                     rse=config.rse,
                 )
             rucio_datasets[rucio_dataset] = []
@@ -311,17 +326,30 @@ for i, dstype in enumerate(dataset_type_list):
 # Finish any partial batches.
 if files:
     if not config.dry_run:
+        present = replica_client.list_replicas(
+            files,
+            rse_expression=config.rse,
+        )
+        existing_names = {replica.name for replica in present}
+        files = [did for did in files if did["name"] not in existing_names]
         retry("add replicas", replica_client.add_replicas, rse=config.rse, files=files)
 
 for rucio_dataset in rucio_datasets:
     if rucio_datasets[rucio_dataset]:
         if not config.dry_run:
+            present = did_client.list_content(scope=config.scope, name=rucio_dataset)
+            existing_names = {did.name for did in present}
+            needed = [
+                did
+                for did in rucio_datasets[rucio_dataset]
+                if did["name"] not in existing_names
+            ]
             retry(
                 f"add files to {rucio_dataset}",
                 did_client.add_files_to_dataset,
                 scope=config.scope,
                 name=rucio_dataset,
-                files=rucio_datasets[rucio_dataset],
+                files=needed,
                 rse=config.rse,
             )
     logger.info(f"{rucio_dataset},{n_files[rucio_dataset]},{n_bytes[rucio_dataset]}")
