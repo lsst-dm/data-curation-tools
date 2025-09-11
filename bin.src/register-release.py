@@ -289,7 +289,7 @@ for i, dstype in enumerate(dataset_type_list):
             existing_names = {replica["name"] for replica in present}
             needed = [did for did in files if did["name"] not in existing_names]
             logger.debug("New replicas: %s", files)
-            if not config.dry_run:
+            if needed and not config.dry_run:
                 retry(
                     "add replicas",
                     replica_client.add_replicas,
@@ -313,7 +313,7 @@ for i, dstype in enumerate(dataset_type_list):
                 if did["name"] not in existing_names
             ]
             logger.debug("Add to dataset %s: %s", rucio_dataset, needed)
-            if not config.dry_run:
+            if needed and not config.dry_run:
                 retry(
                     f"add files to {rucio_dataset}",
                     did_client.add_files_to_dataset,
@@ -333,7 +333,7 @@ if files:
     existing_names = {replica["name"] for replica in present}
     needed = [did for did in files if did["name"] not in existing_names]
     logger.debug("New replicas: %s", needed)
-    if not config.dry_run:
+    if needed and not config.dry_run:
         retry("add replicas", replica_client.add_replicas, rse=config.rse, files=files)
 
 for rucio_dataset in rucio_datasets:
@@ -346,7 +346,7 @@ for rucio_dataset in rucio_datasets:
             if did["name"] not in existing_names
         ]
         logger.debug("Add to dataset %s: %s", rucio_dataset, needed)
-        if not config.dry_run:
+        if needed and not config.dry_run:
             retry(
                 f"add files to {rucio_dataset}",
                 did_client.add_files_to_dataset,
