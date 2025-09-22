@@ -6,4 +6,4 @@ setupRequired(sconsUtils)
 
 # The following is boilerplate for all packages.
 # See https://dmtn-001.lsst.io for details on LSST_LIBRARY_PATH.
-envPrepend(PYTHONPATH, ${PRODUCT_DIR}/python)
+envPrepend(PYTHONPATH, ${PRODUCT_DIR}/python/lsst/data-curation-tools)

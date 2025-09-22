@@ -14,6 +14,7 @@ import yaml
 import lsst.daf.butler as daf_butler
 from lsst.pipe.base import QuantumGraph
 from lsst.utils.logging import getLogger
+from rucio_tools import make_rucio_ds_map
 
 
 def parse_args():
@@ -151,14 +152,11 @@ def run_rucio_register(to_zip, not_to_zip, qgraph, butler_config, logger):
         warnings.warn("RUCIO_REGISTER_CONFIG not set, skipping rucio-register")
         return
 
-    # Rucio register each zip file.
-    run_collection = qgraph.metadata["output_run"]
-    parent_collection = os.path.dirname(run_collection)
-    rucio_dataset = os.environ.get(
-        "RUCIO_DATASET", f"Dataset/{parent_collection}/zip_test"
-    )
-    chunk_size = "30"
+    # Build the map from pipeline dataset type to Rucio dataset.
+    rucio_ds_map = make_rucio_ds_map(qgraph)
 
+    # Rucio register each zip file.
+    chunk_size = "30"
     zip_file_locations = get_zip_file_locations(butler_config, qgraph, to_zip)
     for dstype, zip_file in zip_file_locations.items():
         if not os.path.isfile(zip_file):
@@ -169,7 +167,7 @@ def run_rucio_register(to_zip, not_to_zip, qgraph, butler_config, logger):
             "zips",
             "--log-level=VERBOSE",
             "--rucio-dataset",
-            rucio_dataset,
+            rucio_ds_map[dstype],
             "--zip-file",
             zip_file,
             "--chunk-size",
@@ -186,7 +184,7 @@ def run_rucio_register(to_zip, not_to_zip, qgraph, butler_config, logger):
             "rucio-register",
             "data-products",
             "--rucio-dataset",
-            rucio_dataset,
+            rucio_ds_map[dstype],
             "--dataset-type",
             dstype,
             "--collections",
