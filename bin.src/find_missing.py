@@ -1,5 +1,26 @@
 #!/usr/bin/env python
 
+# This file is part of data-curation-tools.
+#
+# Developed for the LSST Data Management System.
+# This product includes software developed by the LSST Project
+# (https://www.lsst.org).
+# See the COPYRIGHT file at the top-level directory of this distribution
+# for details of code ownership.
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 import click
 import collections
 import json
@@ -38,6 +59,7 @@ def run(instrument: str, dayobs: int):
 
 
 def diff(expected_set, found_set, ingested_set):
+    """Output the differences between the three sets of detectors."""
     for det in sorted(expected_set):
         if det not in found_set:
             print(f"{det} not sent")
@@ -56,6 +78,7 @@ def main(instrument, dayobs):
     butler_alias = CONFIG[instrument]["butler_alias"]
     obs_prefix = CONFIG[instrument]["obs_prefix"]
 
+    # Find the largest sequence number for the observation day.
     day_path = ResourcePath(f"s3://{bucket}/{instrument}/{dayobs}/")
     for dirpath, dirnames, filenames in day_path.walk():
         if len(dirnames) > 0:
@@ -73,6 +96,8 @@ def main(instrument, dayobs):
         x.id: x.full_name
         for x in butler.query_dimension_records("detector", instrument=instrument)
     }
+
+    # Find the science detector raws and guider raws that have been ingested.
 
     ingested_detectors = collections.defaultdict(set)
     with butler.query() as q:
@@ -96,6 +121,7 @@ def main(instrument, dayobs):
                 detector_dict[data_id["detector"]]
             )
 
+    # Check each sequence number to see if it is completely ingested.
     for seqnum in range(1, max_seq + 1):
         print(f"{dayobs=} {seqnum=}", end="")
         expected_detectors = set(detector_dict.values())
@@ -103,6 +129,8 @@ def main(instrument, dayobs):
         expected_guiders = set()
         found_detectors = set()
         found_guiders = set()
+
+        # Need to test for unusual controllers as well as normal "O".
         for controller in ("O", "C", "P", "S"):
             obs_id = f"{obs_prefix}_{controller}_{dayobs}_{seqnum:06d}"
             obs_path = day_path.join(obs_id, forceDirectory=True)
@@ -110,6 +138,7 @@ def main(instrument, dayobs):
             for dirpath, dirnames, filenames in obs_path.walk():
                 break
             if len(filenames) == 0:
+                # Nothing with this controller; try the next.
                 continue
             es_name = f"{obs_id}_expectedSensors.json"
             if es_name in filenames:
@@ -132,6 +161,7 @@ def main(instrument, dayobs):
                     else:
                         found_detectors.add(detector)
 
+                    # Randomly run fitsverify on the file.
                     if random.uniform(0.0, 1.0) < 2e-5:
                         source_path = dirpath.join(f)
                         with source_path.as_local() as local:
@@ -148,9 +178,11 @@ def main(instrument, dayobs):
                             else:
                                 print(" success", end="")
 
+            # If we found files for a controller, there won't be another.
             break
 
         else:
+            # No controllers have images for this sequence number.
             print(" NOT TAKEN?")
             continue
 
@@ -167,6 +199,7 @@ def main(instrument, dayobs):
             end="",
         )
 
+        # Normal case.
         if (
             found_s == ingest_s
             and found_s == expect_s
@@ -176,6 +209,7 @@ def main(instrument, dayobs):
             print(" OK")
             continue
 
+        # Cover all possible cases, except the normal one above.
         print(" SCIENCE:", end=" ")
         if found_s < ingest_s:
             print("IMPOSSIBLE", end="")
