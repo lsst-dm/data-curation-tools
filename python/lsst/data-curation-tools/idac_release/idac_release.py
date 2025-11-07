@@ -5,9 +5,10 @@ Script to create rules for IDAC release using a config file
 
 import argparse
 import json
-from pprint import pprint
+import textwrap
 
 from rucio.client import Client
+from rucio.common.exception import DuplicateRule
 
 
 client = Client(account="release_service")
@@ -20,9 +21,15 @@ def parse_arguments():
     Returns:
         argparse.Namespace: An object containing the parsed arguments.
     """
+
+    examples = textwrap.dedent('''\
+            examples:
+                python idac_release.py --did_file ./dp1.json --idac_file ./IDAC_US-UW.json IDAC_US-UW
+            ''')
     # Create the top-level parser
     parser = argparse.ArgumentParser(
-        description="A script that can perform a dry run and use a JSON config file."
+        description="A script that can perform a dry run and use a JSON config file.",
+        epilog=examples
     )
 
     parser.add_argument(
@@ -32,15 +39,21 @@ def parse_arguments():
     )
 
     parser.add_argument(
-        'rse',
+        '--idac_file',
         type=str,
-        help='RSE name'
+        help='Path to an IDAC product selection JSON configuration file.'
     )
 
     parser.add_argument(
-        'file',
+        '--did_file',
         type=str,
-        help='Path to an IDAC release JSON configuration file.'
+        help='Path to the data release JSON configuration file. Contains number of files in a container.'
+    )
+
+    parser.add_argument(
+        'rse',
+        type=str,
+        help='RSE name'
     )
 
     args = parser.parse_args()
@@ -54,6 +67,22 @@ def load_configuration(containers_file: str):
     return data
 
 
+def get_container_datasets(did):
+    dids = client.list_content(scope=did['scope'],
+                               name=did['name'])
+
+    to_add = [{'scope': d['scope'], 'name': d['name']} for d in dids if d['type'] == 'DATASET']
+
+    return to_add
+
+
+def check_rule_exists(rse, scope, name):
+    replicas = client.list_did_rules(scope=scope, name=name)
+    result = filter(lambda x: x['rse_expression'] == rse, replicas)
+
+    return result
+
+
 def main():
     """
     Creates IDAC release rules from a config file
@@ -62,11 +91,16 @@ def main():
 
     print(f"Dry run enabled: {parsed_args.dry_run}")
     print(f"RSE: {parsed_args.rse}")
-    print(f"Config file: {parsed_args.file}")
+    print(f"Release file: {parsed_args.did_file}")
+    print(f"Config file: {parsed_args.idac_file}")
 
     # open IDAC release json file
-    with open(parsed_args.file, "r", encoding="utf-8") as f:
+    with open(parsed_args.idac_file, "r", encoding="utf-8") as f:
         data = json.load(f)
+
+    # open data release dataset sizes
+    with open(parsed_args.did_file, 'r', encoding='utf-8') as f:
+        release_sizes = json.load(f)
 
     me = client.whoami()
     print(f"Creating rules for account {me['account']}")
@@ -81,8 +115,7 @@ def main():
     for container, enabled in containers.items():
         if enabled:
             scope, name = container.split(':')
-            replicas = client.list_did_rules(scope=scope, name=name)
-            result = filter(lambda x: x['rse_expression'] == rse, replicas)
+            result = check_rule_exists(rse, scope, name)
             if list(result):
                 print(f"replica exists for {scope}:{name} at {rse}, skipping")
                 skipped += 1
@@ -92,12 +125,22 @@ def main():
     print(f"Rules to create: {len(dids_to_transfer)}, "
           f"Rules skipped: {skipped}, "
           f"Total: {len(dids_to_transfer) + skipped}")
-    if not parsed_args.dry_run:
-        for did in dids_to_transfer:
-            rules_created = client.add_replication_rule(dids=[did], copies=1,
-                                                        rse_expression=rse,
-                                                        asynchronous=True)
-            print(f"Rule created: {rules_created}")
+    for did in dids_to_transfer:
+        if release_sizes[f"{did['scope']}:{did['name']}"] > 10000:
+            print("Large container; using datasets")
+            dids = get_container_datasets(did)
+        else:
+            dids = [did]
+        if not parsed_args.dry_run:
+            try:
+                rules_created = client.add_replication_rule(dids=dids,
+                                                            copies=1,
+                                                            rse_expression=rse,
+                                                            activity="IDAC Release",
+                                                            asynchronous=True)
+                print(f"Rule created: {rules_created}")
+            except DuplicateRule:
+                print(f"replica exists for {did['scope']}:{did['name']} at {rse}, skipping")
 
 
 if __name__ == "__main__":
