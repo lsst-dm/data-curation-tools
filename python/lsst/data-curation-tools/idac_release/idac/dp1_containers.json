@@ -1,0 +1,31 @@
+{
+  "rse": "test",
+	"containers": {
+		"dp1:Container/Calibration": "false",
+		"dp1:Container/Catalog/dia_object": "false",
+		"dp1:Container/Catalog/dia_object_forced_source": "false",
+		"dp1:Container/Catalog/dia_source": "false",
+		"dp1:Container/Catalog/object": "true",
+		"dp1:Container/Catalog/object_forced_source": "false",
+		"dp1:Container/Catalog/object_scarlet_models": "false",
+		"dp1:Container/Catalog/source": "false",
+		"dp1:Container/Catalog/ss_object": "true",
+		"dp1:Container/Catalog/ss_source": "true",
+		"dp1:Container/Catalog/visit_detector_table": "true",
+		"dp1:Container/Catalog/visit_summary": "true",
+		"dp1:Container/Catalog/visit_table": "true",
+		"dp1:Container/Configuration": "false",
+		"dp1:Container/Image/deep_coadd": "true",
+		"dp1:Container/Image/deep_coadd_background": "true",
+		"dp1:Container/Image/deep_coadd_n_image": "true",
+		"dp1:Container/Image/difference_image": "false",
+		"dp1:Container/Image/template_coadd": "false",
+		"dp1:Container/Image/visit_image": "false",
+		"dp1:Container/Image/visit_image_background": "false",
+		"dp1:Container/Map": "true",
+		"dp1:Container/Provenance": "false",
+		"dp1:Container/Raw": "false",
+		"dp1:Container/refcats/the_monster_20240219": "false"
+	}
+
+}
