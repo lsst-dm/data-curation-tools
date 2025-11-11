@@ -111,15 +111,16 @@ def main(instrument, dayobs):
             )
 
     ingested_guiders = collections.defaultdict(set)
-    with butler.query() as q:
-        for data_id in (
-            q.where(f"day_obs={dayobs}")
-            .join_dataset_search("guider_raw", f"{instrument}/raw/guider")
-            .data_ids(["exposure", "detector"])
-        ):
-            ingested_guiders[data_id["exposure"] % 100000].add(
-                detector_dict[data_id["detector"]]
-            )
+    if instrument == "LSSTCam":
+        with butler.query() as q:
+            for data_id in (
+                q.where(f"day_obs={dayobs}")
+                .join_dataset_search("guider_raw", f"{instrument}/raw/guider")
+                .data_ids(["exposure", "detector"])
+            ):
+                ingested_guiders[data_id["exposure"] % 100000].add(
+                    detector_dict[data_id["detector"]]
+                )
 
     # Check each sequence number to see if it is completely ingested.
     for seqnum in range(1, max_seq + 1):
