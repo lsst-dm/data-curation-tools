@@ -30,6 +30,7 @@ OPAQUE = {
         f" rubin/usdf-embargo-dmz/{NAMESPACE[instrument]}".split(" "),
         stdout=subprocess.PIPE,
         text=True,
+        check=True,
     ).stdout
     for instrument in NAMESPACE
 }
