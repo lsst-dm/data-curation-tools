@@ -44,3 +44,7 @@ examples: python idac_release.py --did_file ./dp1.json --idac_file ./IDAC_US-UW.
 ```
 
 More examples are in the `idac` and `datareleases` directories.
+
+## Utility Scripts
+`extract_containers.py` extracts the count of datasets for each container from the IDAC release spreadsheet.
+`touch_container_datasets.py` updates the DIDs by setting `is_new=True` metadata for each DID. This is so that the `transmogrifier` daemon can compare the DID with subscriptions and create replication rules for IDACs.
