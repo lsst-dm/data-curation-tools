@@ -1,0 +1,30 @@
+{
+	"rse": "DESC_NERSC",
+	"containers": {
+		"dp1:Container/Calibration": true,
+		"dp1:Container/Catalog/dia_object": true,
+		"dp1:Container/Catalog/dia_object_forced_source": true,
+		"dp1:Container/Catalog/dia_source": true,
+		"dp1:Container/Catalog/object": true,
+		"dp1:Container/Catalog/object_forced_source": true,
+		"dp1:Container/Catalog/object_scarlet_models": true,
+		"dp1:Container/Catalog/source": true,
+		"dp1:Container/Catalog/ss_object": true,
+		"dp1:Container/Catalog/ss_source": true,
+		"dp1:Container/Catalog/visit_detector_table": true,
+		"dp1:Container/Catalog/visit_summary": true,
+		"dp1:Container/Catalog/visit_table": true,
+		"dp1:Container/Configuration": true,
+		"dp1:Container/Image/deep_coadd": true,
+		"dp1:Container/Image/deep_coadd_background": true,
+		"dp1:Container/Image/deep_coadd_n_image": true,
+		"dp1:Container/Image/difference_image": true,
+		"dp1:Container/Image/template_coadd": true,
+		"dp1:Container/Image/visit_image": true,
+		"dp1:Container/Image/visit_image_background": true,
+		"dp1:Container/Map": true,
+		"dp1:Container/Provenance": true,
+		"dp1:Container/Raw": true,
+		"dp1:Container/refcats/the_monster_20240219": true
+	}
+}
