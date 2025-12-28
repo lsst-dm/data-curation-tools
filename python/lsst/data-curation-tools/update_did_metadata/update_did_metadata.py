@@ -1,3 +1,4 @@
+#!/usr/local/env python3
 """
 update_did_metadata.py
 
@@ -16,6 +17,7 @@ the script.
 
 Copyright 2025 Fermi National Accelerator Laboratory (FNAL)
 """
+import argparse
 import json
 import logging
 
@@ -52,7 +54,7 @@ def get_metadata(scope, name):
 
 def load_metadata():
     """
-    Loads metadata from files
+    Legacy. Loads metadata from files
     """
     metadata = ['adler32', 'filesize', 'md5']
     file_data = {}
@@ -99,13 +101,34 @@ def verify_metadata(a: dict, b: dict) -> bool:
 
 
 def load_from_json(file):
-    with open('dids.json', 'r') as f:
+    '''
+    Loads corrections file from JSON
+    '''
+    with open(file, 'r') as f:
         dids = json.load(f)
     return dids
 
 
-def main():
-    dids = load_metadata()
+def parse_args():
+    '''
+    parse arguments
+    '''
+    description = "Updates DID metadata from a corrections file"
+    parser = argparse.ArgumentParser(description=description)
+
+    parser.add_argument(
+        'corrections_file',
+        type=str,
+        help='JSON file with DID corrections'
+    )
+
+    args = parser.parse_args()
+
+    return args
+
+
+def main(args):
+    dids = load_from_json(args.corrections_file)
     logging.info("Number of DIDs to update: %s", len(dids))
 
     to_update = 0
@@ -156,4 +179,10 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    args = parse_args()
+    try:
+        main(args)
+    except FileNotFoundError as e:
+        print(f"Error: File not found: {e}")
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
