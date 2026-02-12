@@ -50,4 +50,6 @@
                   "psf_matched_warp",
                   "preliminary_visit_image",
                   "preliminary_visit_image_background"]
-  
+- collection: LSSTCam/runs/DRP/20250420_20250521/w_2025_21/DM-51076
+  where: "instrument='LSSTCam' and day_obs>=20250420 and day_obs<=20250521"
+  retain_dataset_types: ["*Plot*"]
