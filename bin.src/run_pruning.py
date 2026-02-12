@@ -2,6 +2,7 @@
 
 import argparse
 import fnmatch
+import re
 from lsst.daf.butler import Butler
 from lsst.daf.butler.cli.cliLog import CliLog
 import logging
@@ -30,14 +31,28 @@ def parse_args():
                         " option in query_datasets."
                         " Ignored if --config is passed.")
     parser.add_argument('--dataset-types', type=str,
-                        help="List of comma-separated dataset types to prune."
-                        " Ignored if --config is passed.")
+                        help="List of comma-separated dataset types to prune;"
+                        " will retain all other dataset types."
+                        " Wildcards allowed; pattern matching is case-sensitive."
+                        " Ignored if --config is passed."
+                        " Cannot be used with --retain-dataset-types option.")
+    parser.add_argument('--retain-dataset-types', type=str,
+                        help="List of comma-separated dataset types to retain;"
+                        " will delete all other dataset types (be careful!)"
+                        " Wildcards allowed; pattern matching is case-sensitive."
+                        " Ignored if --config is passed."
+                        " Cannot be used with --dataset-types option.")
     parser.add_argument('--repo', type=str,
                         help="Butler repo name/path",
                         default="embargo")
     args = parser.parse_args()
+    if args.dataset_types and args.retain_dataset_types:
+        raise ValueError("Cannot specify both dataset types to prune"
+                         " and dataset types to retain.")
     if args.dataset_types:
         args.dataset_types = args.dataset_types.split(",")
+    if args.retain_dataset_types:
+        args.retain_dataset_types = args.retain_dataset_types.split(",")
     return args
 
 
@@ -75,11 +90,20 @@ def main():
             yamls = yaml.safe_load(f)
         f.close()
         for yml in yamls:
-            # do stuff for each iteration
+            # do stuff for each section of the yaml file
+            if "dataset_types" in yml.keys():
+                ptypes = yml["dataset_types"]
+            else:
+                ptypes = None
+            if "retain_dataset_types" in yml.keys():
+                rtypes = yml["retain_dataset_types"]
+            else:
+                rtypes = None
             prune(butler,
                   collection=yml["collection"],
                   where=yml["where"],
-                  types_to_prune=yml["dataset_types"],
+                  types_to_prune=ptypes,
+                  types_to_retain=rtypes,
                   dry_run=dry_run,
                   chunk_size=chunk_size,
                   debug=debug,
@@ -89,15 +113,31 @@ def main():
               collection=args.collection,
               where=args.where,
               types_to_prune=args.dataset_types,
+              types_to_retain=args.retain_dataset_types,
               dry_run=dry_run,
               chunk_size=chunk_size,
               debug=debug,
               logger=logger)
 
 
+def find_matches(dtypes, types_to_match, debug=False, logger=None):
+    """ Return a list of dataset types matching specified pattern(s)"""
+    matchlist = []
+    for dstype in types_to_match:
+        robj = re.compile(fnmatch.translate(dstype))
+        dslist = [itype for itype in dtypes if re.fullmatch(robj, itype)]
+        if len(dslist)>0:
+            if debug:
+                logger.debug(f"dataset types matching {dstype}: {dslist}")
+            matchlist = matchlist + dslist
+    # remove any duplicates, and return as list
+    return list(set(matchlist))
+
+
 def prune(butler, collection,
           where=None,
           types_to_prune=None,
+          types_to_retain=None,
           chunk_size=10000,
           dry_run=False,
           debug=False,
@@ -107,8 +147,13 @@ def prune(butler, collection,
     if where is None:
         raise ValueError("You need to provide a valid WHERE query."
                          " It could be as simple as the instrument name.")
-    if types_to_prune is None:
-        raise ValueError("You did not provide a list of dataset types to prune.")
+    if types_to_prune is None and types_to_retain is None:
+        raise ValueError("Must provide either a list of dataset types to prune"
+                         " (retaining all others) or a list of dataset types"
+                         " to retain (pruning all others).")
+    if types_to_prune and types_to_retain:
+        raise ValueError("Cannot specify both a list of datasets to prune"
+                         " and dataset types to retain; they are mutually exclusive.")
     # sorted list of dataset types
     dataset_types = sorted(butler.collections.get_info(collection,
                                                        include_summary=True).dataset_types)
@@ -121,16 +166,23 @@ def prune(butler, collection,
     of the removal names or patterns in types_to_prune.
     """
     prune_list = []
+    if debug:
+        logger.debug(f"Types to prune, retaining all others: {types_to_prune}")
+        logger.debug(f"Specified types to retain: {types_to_retain}")
+    # logic for when types to prune is passed
+    if types_to_prune is not None:
+        prune_list = find_matches(dataset_types,
+                                  types_to_prune,
+                                  debug=debug,
+                                  logger=logger)
+    elif types_to_retain is not None:
+        ret_list = find_matches(dataset_types,
+                                types_to_retain,
+                                debug=debug,
+                                logger=logger)
+        # The final pruning list is the original dataset list minus the retain list
+        prune_list = list(set(dataset_types) - set(ret_list))
 
-    for itype in dataset_types:
-        if not any(fnmatch.filter(types_to_prune, itype)):
-            if debug:
-                logger.debug(f"dataset_type {itype} does not match "
-                             "any removal pattern; do not remove.")
-        else:
-            if debug:
-                logger.debug(f"found {itype}")
-            prune_list.append(itype)
     if debug:
         logger.debug(f"List of types to prune: {prune_list}")
 
