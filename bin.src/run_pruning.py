@@ -14,6 +14,9 @@ def parse_args():
     parser = argparse.ArgumentParser(prog='run_pruning',
                                      description='Prunes datasets')
 
+    parser.add_argument('--repo', type=str,
+                        help="Butler repo name/path",
+                        default="embargo")
     parser.add_argument('--collection',
                         type=str,
                         help="Collection name to use when querying"
@@ -23,28 +26,62 @@ def parse_args():
                         " Takes precedence over other command-line"
                         " arguments regarding configuration such as"
                         " --collection, --dataset-types, or --where.")
-    parser.add_argument('--dry_run', action="store_true")
+    parser.add_argument('--dry_run', action="store_true",
+                        help="Show how manay datasets would be pruned"
+                        " but do not do anything.")
     parser.add_argument('--debug', action="store_true")
-    parser.add_argument('--chunk_size', type=int)
+    parser.add_argument('--chunk_size', type=int,
+                        help="Chunk size for pruning operation(s).")
     parser.add_argument('--where', type=str,
                         help="Argument to pass to the where"
                         " option in query_datasets."
                         " Ignored if --config is passed.")
     parser.add_argument('--dataset-types', type=str,
-                        help="List of comma-separated dataset types to prune;"
+                        help="Comma-separated list of dataset types to prune;"
                         " will retain all other dataset types."
                         " Wildcards allowed; pattern matching is case-sensitive."
                         " Ignored if --config is passed."
-                        " Cannot be used with --retain-dataset-types option.")
+                        " Can only pass one of the following options:"
+                        " --dataset-types,"
+                        " --types-to-retain,"
+                        " --prune-storage-classes,"
+                        " --retain-storage-classes.")
     parser.add_argument('--retain-dataset-types', type=str,
-                        help="List of comma-separated dataset types to retain;"
+                        help="Comma-separated list of dataset types to retain;"
                         " will delete all other dataset types (be careful!)"
                         " Wildcards allowed; pattern matching is case-sensitive."
                         " Ignored if --config is passed."
-                        " Cannot be used with --dataset-types option.")
-    parser.add_argument('--repo', type=str,
-                        help="Butler repo name/path",
-                        default="embargo")
+                        " Can only pass one of the following options:"
+                        " --dataset-types,"
+                        " --retain-dataset-types,"
+                        " --prune-storage-classes,"
+                        " --retain-storage-classes.")
+    parser.add_argument('--prune-storage-classes', type=str,
+                        help="Comma-separated list of storage classes."
+                        " Dataset types with storage class matching one of"
+                        " these patterns will be pruned; will retain all"
+                        " dataset types having other storage classes."
+                        " Wildcards allowed; pattern matching is case-sensitive."
+                        " Ignored if --config is passed."
+                        " Can only pass one of the following options:"
+                        " --dataset-types,"
+                        " --retain-dataset-types,"
+                        " --prune-storage-classes,"
+                        " --retain-storage-classes.")
+    parser.add_argument('--retain-storage-classes', type=str,
+                        help="Comma-separated list of storage classes to retain;"
+                        " dataset types with storage classes matching one of"
+                        " these patterns will be retained."
+                        " All dataset types whose storage class is NOT in"
+                        " this list of classes will be pruned (be careful!)."
+                        " Wildcards allowed; pattern matching is case-sensitive."
+                        " Ignored if --config is passed."
+                        " Can only pass one of the following options:"
+                        " --dataset-types,"
+                        " --retain-dataset-types,"
+                        " --prune-storage-classes,"
+                        " --retain-storage-classes.")
+
     args = parser.parse_args()
     if args.dataset_types and args.retain_dataset_types:
         raise ValueError("Cannot specify both dataset types to prune"
@@ -53,6 +90,11 @@ def parse_args():
         args.dataset_types = args.dataset_types.split(",")
     if args.retain_dataset_types:
         args.retain_dataset_types = args.retain_dataset_types.split(",")
+    if args.prune_storage_classes:
+        args.prune_storage_classes = args.prune_storage_classes.split(",")
+    if args.retain_storage_classes:
+        args.retain_storage_classes = args.retain_storage_classes.split(",")
+
     return args
 
 
@@ -99,11 +141,22 @@ def main():
                 rtypes = yml["retain_dataset_types"]
             else:
                 rtypes = None
+            if "prune_storage_classes" in yml.keys():
+                ptypes = yml["prune_storage_classes"]
+            else:
+                cptypes = None
+            if "retain_storage_classes" in yml.keys():
+                rtypes = yml["retain_storage_classes"]
+            else:
+                crtypes = None
+
             prune(butler,
                   collection=yml["collection"],
                   where=yml["where"],
                   types_to_prune=ptypes,
                   types_to_retain=rtypes,
+                  classes_to_prune=cptypes,
+                  classes_to_retain=crtypes,
                   dry_run=dry_run,
                   chunk_size=chunk_size,
                   debug=debug,
@@ -114,6 +167,8 @@ def main():
               where=args.where,
               types_to_prune=args.dataset_types,
               types_to_retain=args.retain_dataset_types,
+              classes_to_prune=args.prune_storage_classes,
+              classes_to_retain=args.retain_storage_classes,
               dry_run=dry_run,
               chunk_size=chunk_size,
               debug=debug,
@@ -126,7 +181,24 @@ def find_matches(dtypes, types_to_match, debug=False, logger=None):
     for dstype in types_to_match:
         robj = re.compile(fnmatch.translate(dstype))
         dslist = [itype for itype in dtypes if re.fullmatch(robj, itype)]
-        if len(dslist)>0:
+        if len(dslist) > 0:
+            if debug:
+                logger.debug(f"dataset types matching {dstype}: {dslist}")
+            matchlist = matchlist + dslist
+    # remove any duplicates, and return as list
+    return list(set(matchlist))
+
+
+def find_matches_by_storage_class(dtypes, types_to_match,
+                                  debug=False, logger=None):
+    """Find dataset types whose storage class matches specified pattern(s)"""
+    matchlist = []
+    for dstype in types_to_match:
+        robj = re.compile(fnmatch.translate(dstype))
+        # dtypes is a list of tuples. The first index is data type name;
+        # the second is storage class.
+        dslist = [itype[0] for itype in dtypes if re.fullmatch(robj, itype[1])]
+        if len(dslist) > 0:
             if debug:
                 logger.debug(f"dataset types matching {dstype}: {dslist}")
             matchlist = matchlist + dslist
@@ -138,6 +210,8 @@ def prune(butler, collection,
           where=None,
           types_to_prune=None,
           types_to_retain=None,
+          classes_to_prune=None,
+          classes_to_retain=None,
           chunk_size=10000,
           dry_run=False,
           debug=False,
@@ -147,18 +221,27 @@ def prune(butler, collection,
     if where is None:
         raise ValueError("You need to provide a valid WHERE query."
                          " It could be as simple as the instrument name.")
-    if types_to_prune is None and types_to_retain is None:
-        raise ValueError("Must provide either a list of dataset types to prune"
-                         " (retaining all others) or a list of dataset types"
-                         " to retain (pruning all others).")
-    if types_to_prune and types_to_retain:
-        raise ValueError("Cannot specify both a list of datasets to prune"
-                         " and dataset types to retain; they are mutually exclusive.")
+
+    # Check that exactly one type of prune/retain oepration is set
+    optlist = [types_to_prune, types_to_retain,
+               classes_to_prune, classes_to_retain]
+    optiter = iter(optlist)
+    if not (any(optiter) and not any(optiter)):
+        raise ValueError("Must specify exactly one of"
+                         " dataset_types, retain_dataset_types,"
+                         " prune_storage_classes, retain_storage_classes")
+
     # sorted list of dataset types
     dataset_types = sorted(butler.collections.get_info(collection,
                                                        include_summary=True).dataset_types)
     if debug:
         logger.debug(f"Dataset types list: {dataset_types}")
+
+    types_and_classes = []
+    for dstype in dataset_types:
+        typeinfo = butler.registry.queryDatasetTypes(dstype)
+        sclass = typeinfo[0].storageClass.name
+        types_and_classes.append((dstype, sclass))
 
     """
     Final list of dataset types to remove; starts out empty,
@@ -180,7 +263,19 @@ def prune(butler, collection,
                                 types_to_retain,
                                 debug=debug,
                                 logger=logger)
-        # The final pruning list is the original dataset list minus the retain list
+        # Final pruning list is the original dataset list minus retain list
+        prune_list = list(set(dataset_types) - set(ret_list))
+    elif classes_to_prune is not None:
+        prune_list = find_matches_by_storage_class(types_and_classes,
+                                                   classes_to_prune,
+                                                   debug=debug,
+                                                   logger=logger)
+    elif classes_to_retain is not None:
+        ret_list = find_matches_by_storage_class(types_and_classes,
+                                                 classes_to_retain,
+                                                 debug=debug,
+                                                 logger=logger)
+        # Final pruning list is the original dataset list minus retain list
         prune_list = list(set(dataset_types) - set(ret_list))
 
     if debug:
