@@ -20,7 +20,8 @@ def parse_args():
     parser.add_argument('--collection',
                         type=str,
                         help="Collection name to use when querying"
-                        " datasets. Ignored if --config is passed.")
+                        " datasets. Ignored if --config is passed."
+                        " May not begin with a wildcard.")
     parser.add_argument('--config', type=str,
                         help="Optional configuration yaml file."
                         " Takes precedence over other command-line"
@@ -83,17 +84,29 @@ def parse_args():
                         " --retain-storage-classes.")
 
     args = parser.parse_args()
-    if args.dataset_types and args.retain_dataset_types:
-        raise ValueError("Cannot specify both dataset types to prune"
-                         " and dataset types to retain.")
-    if args.dataset_types:
-        args.dataset_types = args.dataset_types.split(",")
-    if args.retain_dataset_types:
-        args.retain_dataset_types = args.retain_dataset_types.split(",")
-    if args.prune_storage_classes:
-        args.prune_storage_classes = args.prune_storage_classes.split(",")
-    if args.retain_storage_classes:
-        args.retain_storage_classes = args.retain_storage_classes.split(",")
+    # only check other args if --config is not passed
+    if not args.config:
+        if args.dataset_types and args.retain_dataset_types:
+            raise ValueError("Cannot specify both dataset types to prune"
+                             " and dataset types to retain.")
+        if args.dataset_types:
+            args.dataset_types = args.dataset_types.split(",")
+            for dt in args.dataset_types:
+                if dt.strip() == "*":
+                    raise ValueError("Bare wildcard not allowed in prune list.")
+        if args.retain_dataset_types:
+            args.retain_dataset_types = args.retain_dataset_types.split(",")
+        if args.prune_storage_classes:
+            args.prune_storage_classes = args.prune_storage_classes.split(",")
+            for psc in args.prune_storage_classes:
+                if psc.strip() == "*":
+                    raise ValueError("Bare wildcard not allowed in storage"
+                                     " class prune list.")
+        if args.retain_storage_classes:
+            args.retain_storage_classes = args.retain_storage_classes.split(",")
+        # For additional protection, don't let --collection start with *
+        if args.collection and args.collection.startswith("*"):
+            raise ValueError("--collection may not start with a wildcard.")
 
     return args
 
@@ -135,6 +148,10 @@ def main():
             # do stuff for each section of the yaml file
             if "dataset_types" in yml.keys():
                 ptypes = yml["dataset_types"]
+                for ptype in ptypes:
+                    if ptype.strip() == "*":
+                        raise ValueError("Bare wildcard not allowed"
+                                         " in prune list.")
             else:
                 ptypes = None
             if "retain_dataset_types" in yml.keys():
@@ -142,14 +159,21 @@ def main():
             else:
                 rtypes = None
             if "prune_storage_classes" in yml.keys():
-                ptypes = yml["prune_storage_classes"]
+                cptypes = yml["prune_storage_classes"]
+                for cptype in cptypes:
+                    if cptype.strip() == "*":
+                        raise ValueError("Bare wildcard not allowed"
+                                         " in storage class prune list.")
             else:
                 cptypes = None
             if "retain_storage_classes" in yml.keys():
-                rtypes = yml["retain_storage_classes"]
+                crtypes = yml["retain_storage_classes"]
             else:
                 crtypes = None
-
+            if "collection" in yml.keys():
+                if yml["collection"].startswith("*"):
+                    raise ValueError("Collection cannot"
+                                     " start with a wildcard.")
             prune(butler,
                   collection=yml["collection"],
                   where=yml["where"],
@@ -302,7 +326,8 @@ def prune(butler, collection,
                     range(0, len(dataset_refs), chunk_size)]
 
     if dry_run:
-        logger.info("Found " + str(len(dataset_refs)) + " datset refs to prune; stopping here.")
+        logger.info("Found " + str(len(dataset_refs)) + " datset refs to"
+                    " prune; stopping here.")
     else:
         if debug:
             logger.debug("Found " + str(len(dataset_refs)) + " datset refs to prune.")
