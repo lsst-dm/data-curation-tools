@@ -314,14 +314,19 @@ def prune(butler, collection,
     if debug:
         logger.debug("where = " + where_query)
     for dset in prune_list:
-        dataset_refs += butler.query_datasets(dataset_type=dset,
-                                              collections=collection,
-                                              where=where_query,
-                                              find_first=False,
-                                              explain=False,
-                                              limit=None,
-                                              )
+        temp_refs = butler.query_datasets(dataset_type=dset,
+                                          collections=collection,
+                                          where=where_query,
+                                          find_first=False,
+                                          explain=False,
+                                          limit=None,
+                                          )
+        # only take refs with run id that starts with the collection name
+        dataset_refs += [tref for tref in temp_refs
+                         if tref.run.startswith(collection)]
+
     dataset_refs.sort()
+
     chunked_refs = [dataset_refs[i:i+chunk_size] for i in
                     range(0, len(dataset_refs), chunk_size)]
 
