@@ -37,3 +37,11 @@ There are two modes to run ``checkObs.py`` (after setting up `data-curation envi
   this case, the script take dataset names from STDIN (one dataset name per line), and print out detail info during
   the checking.
 
+``checkObs.py`` script expects the following environment variables to be set:
+
+- ``RUCIO_ACCOUNT`` and ``RUCIO_CONFIG``. These two are usually part of the data-curation environment setup
+- ``X509_USER_PROXY`` (or the default, ``/tmp/x509up_u$(id -u)``). This is needed to (read-only) access the 
+  FrDF dCache.
+- ``AWS_ACCESS_KEY_ID`` and ``AWS_SECRET``. These are needed to access the Embargo s3.
+- ``embargoURL``. It should be set to ``https://sdfembs3.sdf.slac.stanford.edu``
+
