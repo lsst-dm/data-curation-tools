@@ -77,7 +77,7 @@ def parse_args():
 
 def retry(retry_label: str, func: Any, *args, **kwargs) -> Any:
     """Retry a database-dependent function call up to 10 times."""
-    global logger
+    #global logger
 
     retries = 0
     max_retries = 10
@@ -115,7 +115,7 @@ dsmap = dict()
 
 
 def map_to_rucio(ref: DatasetRef) -> str:
-    global dsmap
+    #global dsmap
 
     dstype = ref.datasetType.name
     dims = ref.datasetType.dimensions
@@ -228,10 +228,12 @@ for i, dstype in enumerate(dataset_type_list):
         path = butler.getURI(ref)
         rel_path = path.relative_to(root)
         if not rel_path:
-            rel_path = path.relative_to(rse_root)
-            if not rel_path:
-                logger.info(f"Skipping {path}")
-                continue
+            #rel_path = path.relative_to(rse_root)
+            #if not rel_path:
+            #    logger.info(f"Skipping {path}")
+            #    continue
+            logger.info(f"Skipping {path}")
+            continue
         path = path.ospath
         pathmap[rel_path] = path
 
@@ -352,4 +354,9 @@ for rucio_dataset in rucio_datasets:
 #    if config.njobs is not None and config.njobs <= 1:
 #        # And close out Datasets, including marking them for tape.
 #        did_client.close(config.scope, rucio_dataset)
-#        did_client.set_metadata(config.scope, rucio_dataset, "arcBackup", "SLAC_RAW_DISK_BKUP:need")
+#        did_client.set_metadata(
+#                                config.scope,
+#                                rucio_dataset,
+#                                "arcBackup",
+#                                "SLAC_RAW_DISK_BKUP:need"
+#                               )
