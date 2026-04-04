@@ -26,21 +26,19 @@ import os
 import struct
 import sys
 import zlib
-from datetime import datetime, timezone
-from enum import Enum
 
 
-# ── constants ──────────────────────────────────────────────────────────────────
-XATTR_NAME  = "user.XrdCks.adler32"
-ALGO_NAME   = b"adler32"
+# ── constants ─────────────────────────────────────────────────────────
+XATTR_NAME = "user.XrdCks.adler32"
+ALGO_NAME = b"adler32"
 CS_VAL_SIZE = 32
 STRUCT_SIZE = 96
-HEADER_FMT  = ">16s q i H H"   # Name(16) fmTime(8) bufSize(4) Flags(2) Length(2)
+HEADER_FMT = ">16s q i H H"   # Name(16) fmTime(8) bufSize(4) Flags(2) Length(2)
 HEADER_SIZE = struct.calcsize(HEADER_FMT)   # = 32
-CHUNK_SIZE  = 1 << 20           # 1 MiB read buffer
+CHUNK_SIZE = 1 << 20           # 1 MiB read buffer
 
 
-# ── checksum ───────────────────────────────────────────────────────────────────
+# ── checksum ──────────────────────────────────────────────────────────
 
 def compute_adler32(path: str) -> int:
     """Stream-compute the adler32 checksum of `path`."""
@@ -51,16 +49,16 @@ def compute_adler32(path: str) -> int:
     return checksum & 0xFFFFFFFF
 
 
-# ── struct packing / unpacking ─────────────────────────────────────────────────
+# ── struct packing / unpacking ────────────────────────────────────────
 
 def pack_xrdcks(checksum: int, fm_time: int) -> bytes:
     """Serialise an XrdCksData record for an adler32 checksum (96 bytes)."""
     name_field = ALGO_NAME.ljust(16, b"\x00")
-    cs_length  = 4
-    header     = struct.pack(HEADER_FMT, name_field, fm_time, cs_length, 0, cs_length)
-    cs_field   = struct.pack(">I", checksum).ljust(CS_VAL_SIZE, b"\x00")
-    payload    = header + cs_field
-    payload   += b"\x00" * (STRUCT_SIZE - len(payload))
+    cs_length = 4
+    header = struct.pack(HEADER_FMT, name_field, fm_time, cs_length, 0, cs_length)
+    cs_field = struct.pack(">I", checksum).ljust(CS_VAL_SIZE, b"\x00")
+    payload = header + cs_field
+    payload += b"\x00" * (STRUCT_SIZE - len(payload))
     return payload
 
 
@@ -86,12 +84,12 @@ def unpack_xrdcks(raw: bytes) -> tuple[int, int]:
     if length == 0 or HEADER_SIZE + length > len(raw):
         raise ValueError(f"invalid checksum length field: {length}")
 
-    cs_bytes = raw[HEADER_SIZE : HEADER_SIZE + length]
+    cs_bytes = raw[HEADER_SIZE:HEADER_SIZE + length]
     checksum = int.from_bytes(cs_bytes, "big")
     return checksum, fm_time
 
 
-# ── xattr I/O ──────────────────────────────────────────────────────────────────
+# ── xattr I/O ─────────────────────────────────────────────────────────
 
 def read_xattr(path: str) -> bytes | None:
     """Return raw xattr bytes, or None if the attribute doesn't exist."""
@@ -104,14 +102,14 @@ def read_xattr(path: str) -> bytes | None:
 
 
 def write_xattr(path: str, raw: bytes) -> None:
-    """Write raw bytes to the xattr, with a helpful error for unsupported fs."""
+    """Write raw bytes to the xattr, ignore error."""
     try:
         os.setxattr(path, XATTR_NAME, raw)
-    except OSError as exc:
+    except OSError:
         pass
 
 
-# ── main logic ─────────────────────────────────────────────────────────────────
+# ── main logic ────────────────────────────────────────────────────────
 
 def xrd_get_size_and_adler32(path: str) -> tuple[int, int]:
     """
@@ -120,11 +118,11 @@ def xrd_get_size_and_adler32(path: str) -> tuple[int, int]:
     Reads from the xattr cache when possible; recomputes and updates
     the cache when the file has been modified or the xattr is absent.
     """
-    stat    = os.stat(path)
-    size    = stat.st_size
-    mtime   = int(stat.st_mtime)
+    stat = os.stat(path)
+    size = stat.st_size
+    mtime = int(stat.st_mtime)
 
-    # ── try to read cached value ───────────────────────────────────────────────
+    # ── try to read cached value ──────────────────────────────────────
     raw = read_xattr(path)
     if raw is not None:
         try:
@@ -132,15 +130,15 @@ def xrd_get_size_and_adler32(path: str) -> tuple[int, int]:
             if fm_time == mtime:
                 return size, f'{checksum:08x}'
         except ValueError:
-           pass   # treat corrupt xattr as missing
+            pass   # treat corrupt xattr as missing
 
-    # ── (re)compute and cache ──────────────────────────────────────────────────
+    # ── (re)compute and cache ─────────────────────────────────────────
     checksum = compute_adler32(path)
     write_xattr(path, pack_xrdcks(checksum, mtime))
     return size, f'{checksum:08x}'
 
 
-# ── CLI ────────────────────────────────────────────────────────────────────────
+# ── CLI ───────────────────────────────────────────────────────────────
 
 def main() -> None:
     if len(sys.argv) < 2:

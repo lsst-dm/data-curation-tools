@@ -1,9 +1,7 @@
 import argparse
-import hashlib
 import logging
 import random
 import time
-import zlib
 from typing import Any
 
 import rucio.common.exception
@@ -250,9 +248,9 @@ for i, dstype in enumerate(dataset_type_list):
         # Define the Rucio DID for the file.
         did = dict(
             name=rel_path,
-            #bytes=-1,
-            #md5="00000000000000000000000000000000",
-            #adler32="00000000",
+            # bytes=-1,
+            # md5="00000000000000000000000000000000",
+            # adler32="00000000",
             scope=config.scope,
         )
 
@@ -265,8 +263,8 @@ for i, dstype in enumerate(dataset_type_list):
 
         # when (len(ref_list) - j) <= config.njobs, this one is the last of the
         # current "for j, ref in enumerate(ref_list):" iteration for this
-        # config.njobs and config.jobnum combination. So everything much be pushed
-        # to Rucio
+        # config.njobs and config.jobnum combination. So everything much be
+        # pushed to Rucio
         if len(files) >= 500 or (len(ref_list) - j) <= config.njobs:
             if not config.dry_run:
                 present = replica_client.list_replicas(
@@ -289,9 +287,10 @@ for i, dstype in enumerate(dataset_type_list):
             pathmap = {}
 
             # Add all pending DIDs to their respective datasets
+            if config.dry_run:
+                continue
             for rucio_dataset_i in rucio_datasets:
-                if not config.dry_run and (len(rucio_datasets[rucio_dataset_i]) > 500 or
-                                           (len(ref_list) - j) <= config.njobs) :
+                if len(rucio_datasets[rucio_dataset_i]) > 500 or (len(ref_list) - j) <= config.njobs:
                     present = did_client.list_content(
                         scope=config.scope, name=rucio_dataset_i
                     )
