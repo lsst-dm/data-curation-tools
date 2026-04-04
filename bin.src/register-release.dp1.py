@@ -1,5 +1,3 @@
-# register data in DP1 butler to Rucio
-#
 import argparse
 import hashlib
 import logging
@@ -14,6 +12,7 @@ from lsst.daf.butler import Butler, DatasetRef
 from lsst.daf.butler.cli.cliLog import CliLog
 from rucio.client.didclient import DIDClient
 from rucio.client.replicaclient import ReplicaClient
+from xrdadler32 import xrd_get_size_and_adler32
 
 
 def parse_args():
@@ -92,23 +91,14 @@ def retry(retry_label: str, func: Any, *args, **kwargs) -> Any:
             retries += 1
             logger.warning(f"{retry_label} retry {retries}: {e}")
             time.sleep(random.uniform(2, 10))
+            exit(1)
     if retries >= max_retries:
         raise RuntimeError("Unable to communicate with database")
 
 
 def getchecksum(path):
-    size = 0
-    md5 = hashlib.md5()
-    adler32 = zlib.adler32(b"")
-    if not config.dry_run:
-        with open(path, "rb") as fd:
-            while buf := fd.read(10 * 1024 * 1024):
-                size += len(buf)
-                md5.update(buf)
-                adler32 = zlib.adler32(buf, adler32)
-    md5_digest = md5.hexdigest()
-    adler32_digest = f"{adler32:08x}"
-    return size, adler32_digest, md5_digest
+    size, adler32_digest = xrd_get_size_and_adler32(path)
+    return size, adler32_digest
 
 
 dsmap = dict()
@@ -208,7 +198,6 @@ for i, dstype in enumerate(dataset_type_list):
     logger.info(f"Handling dataset type {dstype}: {i}/{len(dataset_type_list)}")
 
     files = []
-    # pathmap maps rel_path to os path
     pathmap = {}
     ref_list = sorted(
         retry(
@@ -263,12 +252,24 @@ for i, dstype in enumerate(dataset_type_list):
         # Define the Rucio DID for the file.
         did = dict(
             name=rel_path,
+            #bytes=-1,
+            #md5="00000000000000000000000000000000",
+            #adler32="00000000",
             scope=config.scope,
         )
 
         # Do batched addition of replicas.
         files.append(did)
-        if len(files) >= 500:
+
+        # Do batched addition of files to Datasets.
+        n_files[rucio_dataset] += 1
+        rucio_datasets[rucio_dataset].append(did)
+
+        # when (len(ref_list) - j) <= config.njobs, this one is the last of the
+        # current "for j, ref in enumerate(ref_list):" iteration for this
+        # config.njobs and config.jobnum combination. So everything much be pushed
+        # to Rucio
+        if len(files) >= 500 or (len(ref_list) - j) <= config.njobs:
             if not config.dry_run:
                 present = replica_client.list_replicas(
                     files,
@@ -277,7 +278,7 @@ for i, dstype in enumerate(dataset_type_list):
                 existing_names = {replica["name"] for replica in present}
                 files = [did for did in files if did["name"] not in existing_names]
                 for did in files:
-                    did["bytes"], did["adler32"], did["md5"] = getchecksum(pathmap[did["name"]])
+                    did["bytes"], did["adler32"] = getchecksum(pathmap[did["name"]])
                 if len(files) > 0:
                     retry(
                         "add replicas",
@@ -285,33 +286,34 @@ for i, dstype in enumerate(dataset_type_list):
                         rse=config.rse,
                         files=files,
                     )
+            logger.info(f"add replica : {len(files)} dstype {dstype.name}")
             files = []
             pathmap = {}
 
-        # Do batched addition of files to Datasets.
-        n_files[rucio_dataset] += 1
-        rucio_datasets[rucio_dataset].append(did)
-        if len(rucio_datasets[rucio_dataset]) >= 500:
-            if not config.dry_run:
-                present = did_client.list_content(
-                    scope=config.scope, name=rucio_dataset
-                )
-                existing_names = {did["name"] for did in present}
-                needed = [
-                    did
-                    for did in rucio_datasets[rucio_dataset]
-                    if did["name"] not in existing_names
-                ]
-                if len(needed) > 0:
-                    retry(
-                        f"add files to {rucio_dataset}",
-                        did_client.add_files_to_dataset,
-                        scope=config.scope,
-                        name=rucio_dataset,
-                        files=needed,
-                        rse=config.rse,
+            # Add all pending DIDs to their respective datasets
+            for rucio_dataset_i in rucio_datasets:
+                if not config.dry_run and (len(rucio_datasets[rucio_dataset_i]) > 500 or
+                                           (len(ref_list) - j) <= config.njobs) :
+                    present = did_client.list_content(
+                        scope=config.scope, name=rucio_dataset_i
                     )
-            rucio_datasets[rucio_dataset] = []
+                    existing_names = {did["name"] for did in present}
+                    needed = [
+                        did
+                        for did in rucio_datasets[rucio_dataset_i]
+                        if did["name"] not in existing_names
+                    ]
+                    if len(needed) > 0:
+                        retry(
+                            f"add files to {rucio_dataset}",
+                            did_client.add_files_to_dataset,
+                            scope=config.scope,
+                            name=rucio_dataset_i,
+                            files=needed,
+                            rse=config.rse,
+                        )
+                    logger.info(f"attach to dataset : {len(needed)} dstype {dstype.name}")
+                    rucio_datasets[rucio_dataset_i] = []
 
     # Finish any partial batches.
     if files:
@@ -323,9 +325,10 @@ for i, dstype in enumerate(dataset_type_list):
             existing_names = {replica["name"] for replica in present}
             files = [did for did in files if did["name"] not in existing_names]
             for did in files:
-                did["bytes"], did["adler32"], did["md5"] = getchecksum(pathmap[did["name"]])
+                did["bytes"], did["adler32"] = getchecksum(pathmap[did["name"]])
             if len(files) > 0:
                 retry("add replicas", replica_client.add_replicas, rse=config.rse, files=files)
+        logger.info(f"add replica: {len(files)}")
         files = []
 
     for rucio_dataset_i in rucio_datasets:
@@ -347,6 +350,7 @@ for i, dstype in enumerate(dataset_type_list):
                         files=needed,
                         rse=config.rse,
                     )
+            logger.info(f"attach to dataset : {len(needed)}")
             rucio_datasets[rucio_dataset_i] = []
 
 for rucio_dataset in rucio_datasets:
