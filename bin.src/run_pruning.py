@@ -32,7 +32,8 @@ def parse_args():
                         " but do not do anything.")
     parser.add_argument('--debug', action="store_true")
     parser.add_argument('--chunk_size', type=int,
-                        help="Chunk size for pruning operation(s).")
+                        help="Chunk size for pruning operation(s)."
+                        " default is 50000.")
     parser.add_argument('--where', type=str,
                         help="Argument to pass to the where"
                         " option in query_datasets."
@@ -119,7 +120,7 @@ def main():
     repo = "embargo"
     dry_run = False
     # Some reasonable default
-    chunk_size = 5000
+    chunk_size = 50000
     args = parse_args()
     if args.dry_run:
         dry_run = True
