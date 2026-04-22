@@ -15,8 +15,8 @@ def parse_args():
                                      description='Prunes datasets')
 
     parser.add_argument('--repo', type=str,
-                        help="Butler repo name/path",
-                        default="embargo")
+                        help="Butler repo name/path. Required option.",
+                        required=True)
     parser.add_argument('--collection',
                         type=str,
                         help="Collection name to use when querying"
@@ -117,7 +117,7 @@ def main():
     logger = logging.getLogger("lsst.run.pruning")
     CliLog.setLogLevels(logLevels=[(None, "INFO")])
     logger.setLevel(logging.INFO)
-    repo = "embargo"
+    repo = None
     dry_run = False
     # Some reasonable default
     chunk_size = 50000
