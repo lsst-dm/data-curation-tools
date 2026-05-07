@@ -22,21 +22,21 @@ exposures = butler.query_dimension_records(
     instrument=instrument,
     order_by="exposure",
     explain=False,
-   )
+)
 
 for exp in exposures:
     dimensions_file = f"{exp.obs_id}_dimensions.1.yaml"
     with butler.export(filename=dimensions_file) as export:
         export.saveDimensionData("exposure", [exp])
         dims = [
-                "day_obs",
-                "group",
-                "visit",
-                "visit_definition",
-                "visit_detector_region",
-                "visit_system",
-                "visit_system_membership",
-               ]
+            "day_obs",
+            "group",
+            "visit",
+            "visit_definition",
+            "visit_detector_region",
+            "visit_system",
+            "visit_system_membership",
+        ]
         for dim in dims:
             recs = butler.query_dimension_records(
                 dim,
@@ -44,7 +44,7 @@ for exp in exposures:
                 limit=None,
                 instrument=instrument,
                 explain=False,
-               )
+            )
             if recs:
                 export.saveDimensionData(dim, recs)
     logger.info("saving dimension records to  %s", dimensions_file)
