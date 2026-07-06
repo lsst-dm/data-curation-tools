@@ -1,16 +1,9 @@
 import argparse
 import logging
-import random
-import time
-from typing import Any
 
-import rucio.common.exception
-import sqlalchemy
-from lsst.daf.butler import Butler, DatasetRef
+from lsst.daf.butler import Butler
 from lsst.daf.butler.cli.cliLog import CliLog
 from rucio.client.didclient import DIDClient
-
-import sys
 
 
 def parse_args():
@@ -83,16 +76,17 @@ for i, dstype in enumerate(dataset_type_list):
     ):
         continue
 
-    # logger.info(f"Handling dataset type {dstype}: {i}/{len(dataset_type_list)}")
-
     files = []
-    ref_list = sorted(butler.query_datasets(dstype,
-                                            collections=config.collection,
-                                            find_first=False,
-                                            limit=None,
-                                            explain=False
-                                           ))
- 
+    ref_list = sorted(
+        butler.query_datasets(
+            dstype,
+            collections=config.collection,
+            find_first=False,
+            limit=None,
+            explain=False
+        )
+    )
+
     for j, ref in enumerate(ref_list):
         nfiles_total += 1
         path = butler.getURI(ref)
@@ -118,9 +112,8 @@ for i, dstype in enumerate(dataset_type_list):
         files.append(did)
 
         if len(files) >= 500 or j == len(ref_list)-1:
-            nfiles_added += len(files) 
+            nfiles_added += len(files)
             did_client.set_dids_metadata_bulk(files)
-            # logger.info(f"add did metadata: files: {len(files)} dstype: {dstype.name}")
             files = []
 
         if nfiles_total % 1000 == 0:
