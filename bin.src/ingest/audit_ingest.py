@@ -202,7 +202,7 @@ def report_audit(txt, lfn_vec, sel_vec, list_type, meta_vec=None):
 
     want = list_type in cmd_info.list
     if want or cmd_info.verbose:
-        print("-----", len(sel_vec),  txt, file=sys.stderr)
+        print("-----", len(sel_vec), txt, file=sys.stderr)
         if want:
             if cmd_info.prefix:
                 pfx = '!{}: '.format(list_type)
@@ -313,8 +313,8 @@ def audit_rucio(dsn):
         report_audit("noningestable files due to missing metadata.",
                      lfn_vec, f_nope, 'nometa')
     if len(f_dups) > 0:
-        report_audit("ingestable files registered Rucio but not checked " +
-                     "due to duplicate uuid.", lfn_vec, f_dups, 'uuiderrs')
+        report_audit("ingestable files registered Rucio but not checked "
+                     + "due to duplicate uuid.", lfn_vec, f_dups, 'uuiderrs')
     if len(f_miss) > 0:
         report_audit("ingestable files registered Rucio but not in butler.",
                      lfn_vec, f_miss, 'missing', meta_vec)
