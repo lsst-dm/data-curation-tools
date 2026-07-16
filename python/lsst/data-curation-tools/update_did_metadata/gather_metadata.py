@@ -11,8 +11,6 @@ Copyright 2025 Fermi National Accelerator Laboratory (FNAL)
 import argparse
 import hashlib
 import json
-import os
-import pathlib
 import pprint
 
 import gfal2
@@ -20,6 +18,8 @@ from rucio.client import Client
 
 client = Client()
 ctx = gfal2.creat_context()
+
+BASE_PFN = "davs://sdfdtn005.slac.stanford.edu:1094/lsst/rawdisk/raw/LSSTCam"
 
 
 def read_did_file(file: str):
@@ -57,8 +57,8 @@ def gather_metadata(dids):
                     gfal_size = gfal_stat.st_size
                     try:
                         gfal_md5 = ctx.checksum(pfn, 'md5')
-                    except:
-                        filepath = pfn.replace("davs://sdfdtn005.slac.stanford.edu:1094/lsst/rawdisk/raw/LSSTCam",
+                    except Exception:
+                        filepath = pfn.replace(BASE_PFN,
                                                "/sdf/data/rubin/rses/lsst/rawdisk/raw/LSSTCam")
                         print(f"md5 failed for {pfn}, getting from {filepath}")
 
