@@ -1,14 +1,22 @@
 #!/usr/bin/env python
 
-# ingest all DID in a Rucio dataset to a butler
-
+# Ingest all DID in a Rucio dataset to a butler
+#
 # make sure those DID have metadata "rubin_butler" and "rubin_sidecar" defined.
+#
+# The following envars control execution
+#
+# "INGEST_BUTLER"
+#       Path to the Butler repository that should be used.
 
 import sys
+import os
 from rucio.client.didclient import DIDClient
 from lsst.daf.butler import Butler, DatasetRef, FileDataset, registry
 
-repo = "dp2_prep"
+repo = os.getenv("INGEST_BUTLER", None)
+if repo is None:
+    raise ValueError("Please point unix envorinment INGEST_BUTLER to a Butler")
 
 
 def ingest_to_butler(dids: list[dict]):

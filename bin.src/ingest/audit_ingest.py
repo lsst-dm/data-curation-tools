@@ -7,7 +7,7 @@
 
 # The following envars control execution
 #
-# "AUDIT_INGEST_BUTLER"
+# "INGEST_BUTLER"
 #       Path to the Butler repository that should be used.
 
 # "AUDIT_INGEST_DEBUG"
@@ -420,9 +420,9 @@ def init_globals():
 
     # Initialize the correct butler repo
     #
-    b_repo = os.getenv("AUDIT_INGEST_BUTLER", None)
+    b_repo = os.getenv("INGEST_BUTLER", None)
     if b_repo is None:
-        b_repo = "/sdf/data/rubin/u/yangw/repos/dp1test01"
+        raise ValueError("Please point unix envorinment INGEST_BUTLER to a Butler")
     global butler
     try:
         butler = Butler(b_repo)
