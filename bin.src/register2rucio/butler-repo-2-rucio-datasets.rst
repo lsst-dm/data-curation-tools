@@ -2,13 +2,18 @@
 Split Butler Repo into Rucio Datasets
 #####################################
 
-``butler-repo-2-rucio-datasets`` (link to location to be added) is a tool that will split a
+``butler-repo-2-rucio-datasets.py``
+===================================
+
+``butler-repo-2-rucio-datasets.py`` is a tool that will split a
 Butler repo into multiple rucio datasets. This is useful when you have a butler repo with a
 very large number of datasets, and you want to split it into smaller, more manageable rucio
 datasets. The script work with all butler RUN collections (or all RUN collection in a root
 Chain collection). 
 
-The tools splits butler datasets based on their RUN collection name, dataset types and ingestion 
+The tools iterates through a butler's RUN collections, then the butler dataset types
+within each RUN collection. It then
+splits butler datasets based on their RUN collection name, dataset types and ingestion 
 dates. Ingestion date is used so that we can divide the work into smaller phases.
 
 A few parameters at the begin of the script can be changed to customize the the script. They
@@ -56,3 +61,26 @@ To register a UUID list file to rucio, use the following command:
           --uuidlist <uuid_file>\n"
 
 (This usage of ``rucio-register`` requests branch `tickets/DM-54927 <https://github.com/lsst/rucio_register/tree/tickets/DM-54927>`__.)
+
+``butler-repo-2-rucio-datasets-4-dp2.py``
+=========================================
+
+The tool was used to register the early DP2 to the Rucio.
+
+This tool does similar things as the ``butler-repo-2-rucio-datasets.py`` except that
+it iterates through the butler dataset types first, and then collections. The two iterations
+are done in this order because users (iDACs) choose data only based on butler dataset types.
+
+The output Rucio dataset names will look like:
+
+   .. code-block:: python
+
+      Dataset/{datasetType}-{DFname}-{period}-{index:08d}
+
+In the above, RUN collection names are not part of the Rucio dataset names. The period is
+the year-month between the first day of the ``startData`` and last day of ``cutoffData``. 
+
+In the future, the ``DFname`` may not be needed in the Rucio dataset names. But ``period``
+is likely still needed, mainly to checkpoint the DB query progress and prevent overly large
+data returned from a query.
+
