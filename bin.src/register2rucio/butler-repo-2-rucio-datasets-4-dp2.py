@@ -11,11 +11,10 @@ It will create a number of refs_XXXXXXXX.txt files at
 '''
 
 
-import sys
 import os
 import hashlib
 import pandas
-from datetime import timedelta,datetime,date
+from datetime import date
 from lsst.daf.butler import Butler, CollectionType, _exceptions
 
 # Adjust the following
@@ -32,6 +31,7 @@ rucioScope = repoName
 maxDIDperDataset = 50000
 
 months = pandas.date_range(startDate, cutoffDate, freq='MS')
+
 
 def remove_refs_in_rucio(refs: list, scope: str = rucioScope) -> list:
     """ Remove all refs that is already known to Rucio
@@ -134,7 +134,7 @@ dataset_types = []
 for x in butler.registry.queryDatasetTypes():
     dataset_types.append(x.name)
 
-#print(f"Debug len(months) = {len(months)}")
+# print(f"Debug len(months) = {len(months)}")
 
 for q in range(len(months)-1):
     yearmonth = months[q].strftime("%Y%m")
@@ -145,13 +145,13 @@ for q in range(len(months)-1):
     day = months[q+1].strftime("%Y-%m-%d")
     where += f"ingest_date < T'{day}T00:00:00'"
 
-#    print(f'Debug: {where}')
+    # print(f'Debug: {where}')
     for datasetType in dataset_types:
         if datasetType == 'raw':
             continue
         # Test if we can include all collections of the datasetType in on shot
         try:
-#            print(f"Debug: Query dataset type {datasetType}")
+            # print(f"Debug: Query dataset type {datasetType}")
             x = butler.query_datasets(
                 dataset_type=datasetType,
                 collections='*',
@@ -160,7 +160,7 @@ for q in range(len(months)-1):
                 order_by="ingest_date",
                 limit=maxDIDperDataset
             )
-            #refs = list(set(x))  # remove redundent
+            # refs = list(set(x))  # remove redundent
             refs = x
         except _exceptions.EmptyQueryResultError:
             refs = []
@@ -179,9 +179,9 @@ for q in range(len(months)-1):
             )
             continue
 
-        # has too many files, chop them to smaller group 
+        # has too many files, chop them to smaller group
 
-#        print("Debug: starting the loop")
+        # print("Debug: starting the loop")
         index = 1
         for collection in run_collections:
             try:
