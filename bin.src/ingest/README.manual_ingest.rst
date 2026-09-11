@@ -14,7 +14,7 @@ Rucio dataset have been registered to the Butler. To use it
    .. code:: bash
 
       export INGEST_BUTLER=<butler path>
-      python3 audit_ingest.py ruico <ruico_dataset_did scope:name>
+      python3 audit_ingest.py rucio <ruico_dataset_did scope:name>
 
 This tool will print to STDOUT all file DIDs that are not known (missing)
 by the Butler, one DID per line. This output can be used by the next tool
