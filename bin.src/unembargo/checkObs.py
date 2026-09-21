@@ -541,10 +541,10 @@ if __name__ == "__main__":
 
     dotenv.load_dotenv()
 
-    print(os.environ['http_proxy'])
-    print(os.environ['https_proxy'])
-    print(os.environ['HTTP_PROXY'])
-    print(os.environ['HTTPS_PROXY'])
+    os.environ.pop('http_proxy', None)
+    os.environ.pop('https_proxy', None)
+    os.environ.pop('HTTP_PROXY', None)
+    os.environ.pop('HTTPS_PROXY', None)
 
     if not checkX509proxy():
         exit(1)
