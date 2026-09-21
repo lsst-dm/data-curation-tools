@@ -163,7 +163,7 @@ def checkFrDFcopy(m: dict, dids: dict) -> bool:
     """
     with rucioOprLock:
         dsreplicas = ReplicaClient.list_dataset_replicas(
-            scope=m["scope"], name=m["name"], deep=False
+            scope=m["scope"], name=m["name"], deep=True
         )
         for x in dsreplicas:
             if x["rse"] == FrDFRSE and x["length"] == x["available_length"]:
